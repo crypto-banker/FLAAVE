@@ -22,6 +22,12 @@ contract TokenPool is ERC20Upgradeable, ReentrancyGuardUpgradeable, IERC3156Flas
     /// @notice emitted upon the successful execution of a flash loan
     event FlashLoanExecuted(uint256 amount, uint256 fee);
 
+    constructor(IAToken _aToken, uint256 _flashLoanFeeBips) {
+        initialize(_aToken, _flashLoanFeeBips);
+        _disableInitializers();
+    }
+
+    /// @notice One-time only setup function
     function initialize(IAToken _aToken, uint256 _flashLoanFeeBips) public initializer {
         aToken = _aToken;
         lendingPool = IAToken_UndocumentedFunctions(address(_aToken)).POOL();
