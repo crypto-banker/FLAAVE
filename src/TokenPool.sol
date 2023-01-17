@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.10;
 
+import "lib/aave-v3-core/contracts/interfaces/IAToken.sol";
+
+import "lib/openzeppelin-contracts-upgradeable/contracts/interfaces/IERC3156Upgradeable.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import "lib/aave-v3-core/contracts/interfaces/IAToken.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
 
-import "./IFlashLoanRecipient.sol";
 import "./IAToken_UndocumentedFunctions.sol";
 
-contract TokenPool is ERC20Upgradeable, ReentrancyGuardUpgradeable {
+contract TokenPool is ERC20Upgradeable, ReentrancyGuardUpgradeable, IERC3156FlashLenderUpgradeable {
     uint256 internal constant MAX_BIPS = 10000;
     uint16 internal constant REFERRAL_CODE = 0;
 
@@ -70,15 +71,15 @@ contract TokenPool is ERC20Upgradeable, ReentrancyGuardUpgradeable {
         require(amountWithdrawn == tokensToSend, "TokenPool.burnToUnderlying: amountWithdrawn != tokensToSend");
     }
 
-    function flashLoan(uint256 loanSize, IFlashLoanRecipient flashLoanRecipient, bytes calldata params) external nonReentrant {
+    function flashLoan(IERC3156FlashBorrowerUpgradeable receiver, address /*token*/, uint256 amount, bytes calldata data) external nonReentrant returns (bool) {
         uint256 aTokenBalanceBefore = _aTokenBalance();
-        uint256 flashLoanFee = (loanSize * flashLoanFeeBips) / MAX_BIPS;
+        uint256 flashLoanFee = (amount * flashLoanFeeBips) / MAX_BIPS;
 
-        uint256 amountWithdrawn = lendingPool.withdraw(underlyingAsset, loanSize, address(flashLoanRecipient));
-        require(amountWithdrawn >= loanSize, "TokenPool.flashLoan: did not withdraw at least loan size");
+        uint256 amountWithdrawn = lendingPool.withdraw(underlyingAsset, amount, address(receiver));
+        require(amountWithdrawn >= amount, "TokenPool.flashLoan: did not withdraw at least loan size");
 
-        require(flashLoanRecipient.executeOperation(underlyingAsset, loanSize, flashLoanFee, msg.sender, params),
-            "TokenPool.flashLoan: flashLoanRecipient.executeOperation failure");
+        require(receiver.onFlashLoan(msg.sender, underlyingAsset, amount, flashLoanFee, data) == keccak256("ERC3156FlashBorrower.onFlashLoan"),
+            "TokenPool.flashLoan: receiver.onFlashLoan failure");
 
         uint256 underlyingTokenBalance = IERC20(underlyingAsset).balanceOf(address(this));
         if (underlyingTokenBalance != 0) {
@@ -87,6 +88,25 @@ contract TokenPool is ERC20Upgradeable, ReentrancyGuardUpgradeable {
 
         uint256 aTokenBalanceAfter = _aTokenBalance();
         require(aTokenBalanceAfter >= aTokenBalanceBefore + flashLoanFee, "TokenPool.flashLoan: insufficient fee payment");
+
+        // this is part of ERC3156
+        return true;
+    }
+
+    function maxFlashLoan(address token) external view returns (uint256) {
+        // this is part of ERC3156
+        if (token != underlyingAsset) {
+            return 0;
+        }
+        return _aTokenBalance();
+    }
+
+    function flashFee(address token, uint256 amount) external view returns (uint256) {
+        // this is part of ERC3156
+        if (token != underlyingAsset) {
+            revert("TokenPool.flashFee: token != underlyingAsset");
+        }
+        return (amount * flashLoanFeeBips) / MAX_BIPS;
     }
 
     function _aTokenBalance() internal view returns (uint256) {
