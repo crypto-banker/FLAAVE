@@ -44,7 +44,7 @@ Suppose `Lender` has
 
 <a name="ethos"/></a>
 ## Ethos
-FLAAVE was built for fun. It is AGPL-licensed](https://www.gnu.org/licenses/agpl-3.0.en.html) due to importing AAVE's AGPL-licensed interface contracts; however, if you'd like to use any of the original work in this repo -- for any purposes -- go ahead!
+FLAAVE was built for fun. It is [AGPL-licensed](https://www.gnu.org/licenses/agpl-3.0.en.html) due to importing AAVE's AGPL-licensed interface contracts; however, if you'd like to use any of the original work in this repo -- for any purposes -- go ahead!
 
 FLAAVE is flexibly implemented to be deployable with an upgradeable proxy architecture, *or* as non-upgradeable. This is primarily because AAVE's contracts are themselves upgradeable proxies, meaning it is *possible* for AAVE to upgrade in a manner that makes its contracts incompatible with FLAAVE, forcing FLAAVE to upgrade. However, since the chance of this is rather low, users may be more comfortable with a non-upgradeable FLAAVE.
 
